@@ -6,7 +6,6 @@ use gtk::{
     LabelExt, Orientation, SpinButtonExt, WidgetExt, Window, WindowType,
 };
 use std::fs;
-use std::io::Write;
 
 use daemonize::Daemonize;
 
@@ -78,23 +77,87 @@ impl Alarm {
         hbox.pack_start(&seconds, true, true, 10);
 
         let done_button = gtk::Button::new_with_label("Done");
-        /* done_button.connect_clicked(move |_but| {
-            let hours = spin_btns_vec[0].get_value();
-            let minutes = spin_btns_vec[1].get_value();
-            let seconds = spin_btns_vec[2].get_value();
-            //Self::write_time(hours, minutes, seconds);
-
-            Self::on_done_clicked(_but);
-        }); */
 
         let vbox = gtk::Box::new(Orientation::Vertical, 10);
         vbox.pack_start(&Self::action_select(), false, false, 0);
-        //vbox.pack_start(&label, true, true, 10);
         vbox.pack_start(&hbox, true, true, 10);
         vbox.pack_start(&done_button, true, true, 10);
 
         vbox.set_margin_top(10);
         vbox
+    }
+
+    fn on_done_clicked(_but: &gtk::Button, selected_file: String) {
+        let daemonize = Daemonize::new().privileged_action(move || {
+            std::process::Command::new("xdg-open")
+                .arg(&selected_file)
+                .spawn()
+                .expect("Error opening desired file");
+        });
+
+        match daemonize.start() {
+            Ok(_) => std::process::exit(0),
+            Err(e) => eprintln!("Error, {}", e),
+        }
+    }
+
+    fn action_select() -> gtk::Box {
+        let label = gtk::Label::new(None);
+        label.set_markup("<b>Set the timer and choose a program to execute</b>");
+        label.set_line_wrap(true);
+        label.set_max_width_chars(20);
+
+        let btn = gtk::Button::new_from_icon_name("list-add-symbolic", 5);
+        btn.connect_clicked(|_btn| {
+            let dialog: gtk::FileChooserDialog =
+                gtk::FileChooserDialog::with_buttons::<gtk::FileChooserDialog>(
+                    Some("Choose music"),
+                    None,
+                    gtk::FileChooserAction::Open,
+                    &[
+                        ("_Cancel", gtk::ResponseType::Cancel),
+                        ("_Select", gtk::ResponseType::Accept),
+                    ],
+                );
+            dialog.connect_response(|dlg, id| {
+                if id == -3 {
+                    Self::save_audio(
+                        &dlg.get_filename()
+                            .expect("Can't find config file anymore")
+                            .to_path_buf(),
+                    );
+                };
+
+                dlg.close();
+            });
+            dialog.show();
+        });
+
+        let hbox = gtk::Box::new(Orientation::Horizontal, 0);
+        hbox.pack_start(&label, true, true, 10);
+        hbox.pack_start(&btn, false, false, 10);
+        hbox
+    }
+
+    fn save_audio(selected_file: &std::path::PathBuf) {
+        let config_file = get_config_file();
+        let selected_file = selected_file
+            .to_str()
+            .expect("Error while reading audio file path");
+        let contents = format!("Audio: {}", selected_file);
+        fs::write(config_file, contents).expect("Error while writing to config file");
+    }
+
+    fn get_audio() -> Option<String> {
+        let config_file = get_config_file();
+        let contents = fs::read_to_string(&config_file).expect("Error while reading config file");
+        contents.find("Audio")?;
+        Some(String::from(
+            contents
+                .split(": ")
+                .nth(1)
+                .expect("Config file format error"),
+        ))
     }
     fn connect_all(self) {
         let mut vbox = self.main_win.get_children();
@@ -173,90 +236,6 @@ impl Alarm {
             });
         });
     }
-    fn _write_time(h: f64, m: f64, s: f64) {
-        let config_file = get_config_file();
-        let mut contents = fs::OpenOptions::new()
-            .append(true)
-            .open(config_file)
-            .expect("Error while opening config file");
-        contents
-            .write_fmt(format_args!("time: {}-{}-{}", h, m, s))
-            .expect("Error while writing to config file");
-    }
-    fn on_done_clicked(_but: &gtk::Button, selected_file: String) {
-        let daemonize = Daemonize::new().privileged_action(move || {
-            std::process::Command::new("xdg-open")
-                .arg(&selected_file)
-                .spawn()
-                .expect("Error opening desired file");
-        });
-
-        match daemonize.start() {
-            Ok(_) => std::process::exit(0),
-            Err(e) => eprintln!("Error, {}", e),
-        }
-    }
-
-    fn action_select() -> gtk::Box {
-        let label = gtk::Label::new(None);
-        label.set_markup("<b>Set the timer and choose a program to execute</b>");
-        label.set_line_wrap(true);
-        label.set_max_width_chars(20);
-
-        let btn = gtk::Button::new_from_icon_name("list-add-symbolic", 5);
-        btn.connect_clicked(|_btn| {
-            let dialog: gtk::FileChooserDialog =
-                gtk::FileChooserDialog::with_buttons::<gtk::FileChooserDialog>(
-                    Some("Choose music"),
-                    None,
-                    gtk::FileChooserAction::Open,
-                    &[
-                        ("_Cancel", gtk::ResponseType::Cancel),
-                        ("_Select", gtk::ResponseType::Accept),
-                    ],
-                );
-            dialog.connect_response(|dlg, id| {
-                if id == -3 {
-                    Self::save_audio(
-                        &dlg.get_filename()
-                            .expect("Can't find config file anymore")
-                            .to_path_buf(),
-                    );
-                };
-
-                //_btn.set_image::<gtk::Widget, &Option<gtk::Widget>>(&None);
-
-                dlg.close();
-            });
-            dialog.show();
-        });
-
-        let hbox = gtk::Box::new(Orientation::Horizontal, 0);
-        hbox.pack_start(&label, true, true, 10);
-        hbox.pack_start(&btn, false, false, 10);
-        hbox
-    }
-
-    fn save_audio(selected_file: &std::path::PathBuf) {
-        let config_file = get_config_file();
-        let selected_file = selected_file
-            .to_str()
-            .expect("Error while reading audio file path");
-        let contents = format!("Audio: {}", selected_file);
-        fs::write(config_file, contents).expect("Error while writing to config file");
-    }
-
-    fn get_audio() -> Option<String> {
-        let config_file = get_config_file();
-        let contents = fs::read_to_string(&config_file).expect("Error while reading config file");
-        contents.find("Audio")?;
-        Some(String::from(
-            contents
-                .split(": ")
-                .nth(1)
-                .expect("Config file format error"),
-        ))
-    }
 }
 
 fn get_config_file() -> std::path::PathBuf {
@@ -272,11 +251,6 @@ fn setup_env() {
         Ok(_) => write_config(&config_file),
         Err(_) => write_config(&config_file),
     };
-}
-
-fn _read_config(_f: &std::path::PathBuf) {
-    /* let contents = fs::read_to_string(f).expect("Error while reading config file");
-    for line in contents.split('\n') */
 }
 
 fn write_config(path: &std::path::PathBuf) {
