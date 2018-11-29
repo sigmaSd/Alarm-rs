@@ -230,6 +230,6 @@ fn main() {
 
     let alarm = Alarm::new();
     alarm.connect_all();
-    
+
     gtk::main();
 }
