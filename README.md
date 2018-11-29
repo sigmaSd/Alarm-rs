@@ -1,4 +1,4 @@
-#Alarm-rs
+# Alarm-rs
 
 Execute a program after a set amount of time. (via xdg-open)
 
@@ -11,4 +11,5 @@ cargo run --release
 ```
 
 # How it looks like
+<img src="./alarm.png" width="80%" height="80%">
 
