@@ -1,28 +1,23 @@
-use lazy_static::*;
+use std::borrow::Borrow;
+use std::cell::RefCell;
+use std::rc::Rc;
 
-use directories::ProjectDirs;
 use gtk::{
     BoxExt, ButtonExt, Cast, ContainerExt, DialogExt, FileChooserExt, GtkWindowExt, Inhibit,
     LabelExt, Orientation, SpinButtonExt, WidgetExt, Window, WindowType,
 };
-use std::fs;
-
-use daemonize::Daemonize;
-
-lazy_static! {
-    static ref CONFIG_DIR: std::path::PathBuf = ProjectDirs::from("", "", "Alarm")
-        .expect("Cant locate home folder")
-        .config_dir()
-        .to_path_buf();
-}
 
 struct Alarm {
     main_win: Window,
+    selected_file: std::path::PathBuf,
 }
 impl Alarm {
     fn new() -> Self {
         let main_win = Self::main_win();
-        Self { main_win }
+        Self {
+            main_win,
+            selected_file: Default::default(),
+        }
     }
     // GUI
     fn main_win() -> Window {
@@ -79,7 +74,7 @@ impl Alarm {
         let done_button = gtk::Button::new_with_label("Done");
 
         let vbox = gtk::Box::new(Orientation::Vertical, 10);
-        vbox.pack_start(&Self::action_select(), false, false, 0);
+        vbox.pack_start(&Self::select_file(), false, false, 0);
         vbox.pack_start(&hbox, true, true, 10);
         vbox.pack_start(&done_button, true, true, 10);
 
@@ -87,51 +82,29 @@ impl Alarm {
         vbox
     }
 
-    fn on_done_clicked(_but: &gtk::Button, selected_file: String) {
-        let daemonize = Daemonize::new().privileged_action(move || {
+    fn execute_file(selected_file: &std::path::PathBuf) {
+        if cfg!(target_os = "linux") {
             std::process::Command::new("xdg-open")
                 .arg(&selected_file)
                 .spawn()
                 .expect("Error opening desired file");
-        });
-
-        match daemonize.start() {
-            Ok(_) => std::process::exit(0),
-            Err(e) => eprintln!("Error, {}", e),
+        } else if cfg!(target_os = "windows") {
+            std::process::Command::new("cmd")
+                .args(&["/C", "start", selected_file.to_str().unwrap()])
+                .spawn()
+                .expect("Error opening desired file");
+        } else {
+            //Hmmm
         }
     }
 
-    fn action_select() -> gtk::Box {
+    fn select_file() -> gtk::Box {
         let label = gtk::Label::new(None);
         label.set_markup("<b>Set the timer and choose a program to execute</b>");
         label.set_line_wrap(true);
         label.set_max_width_chars(20);
 
         let btn = gtk::Button::new_from_icon_name("list-add-symbolic", 5);
-        btn.connect_clicked(|_btn| {
-            let dialog: gtk::FileChooserDialog =
-                gtk::FileChooserDialog::with_buttons::<gtk::FileChooserDialog>(
-                    Some("Choose music"),
-                    None,
-                    gtk::FileChooserAction::Open,
-                    &[
-                        ("_Cancel", gtk::ResponseType::Cancel),
-                        ("_Select", gtk::ResponseType::Accept),
-                    ],
-                );
-            dialog.connect_response(|dlg, id| {
-                if id == -3 {
-                    Self::save_audio(
-                        &dlg.get_filename()
-                            .expect("Can't find config file anymore")
-                            .to_path_buf(),
-                    );
-                };
-
-                dlg.close();
-            });
-            dialog.show();
-        });
 
         let hbox = gtk::Box::new(Orientation::Horizontal, 0);
         hbox.pack_start(&label, true, true, 10);
@@ -139,26 +112,7 @@ impl Alarm {
         hbox
     }
 
-    fn save_audio(selected_file: &std::path::PathBuf) {
-        let config_file = get_config_file();
-        let selected_file = selected_file
-            .to_str()
-            .expect("Error while reading audio file path");
-        let contents = format!("Audio: {}", selected_file);
-        fs::write(config_file, contents).expect("Error while writing to config file");
-    }
-
-    fn get_audio() -> Option<String> {
-        let config_file = get_config_file();
-        let contents = fs::read_to_string(&config_file).expect("Error while reading config file");
-        contents.find("Audio")?;
-        Some(String::from(
-            contents
-                .split(": ")
-                .nth(1)
-                .expect("Config file format error"),
-        ))
-    }
+    // Connect Callbacks
     fn connect_all(self) {
         let mut vbox = self.main_win.get_children();
         let vbox = vbox
@@ -196,8 +150,38 @@ impl Alarm {
             .unwrap()
             .downcast::<gtk::Button>()
             .unwrap();
+
+        let alarm_ref1 = Rc::new(RefCell::new(self));
+        let alarm_ref2 = alarm_ref1.clone();
+        let alarm_ref4 = alarm_ref1.clone();
+        add_btn.connect_clicked(move |_btn| {
+            let alarm_ref3 = alarm_ref2.clone();
+            let dialog: gtk::FileChooserDialog =
+                gtk::FileChooserDialog::with_buttons::<gtk::FileChooserDialog>(
+                    Some("Choose file"),
+                    None,
+                    gtk::FileChooserAction::Open,
+                    &[
+                        ("_Cancel", gtk::ResponseType::Cancel),
+                        ("_Select", gtk::ResponseType::Accept),
+                    ],
+                );
+            dialog.connect_response(move |dlg, id| {
+                if id == -3 {
+                    let alarm_ref3: &RefCell<Alarm> = alarm_ref3.borrow();
+                    alarm_ref3.borrow_mut().selected_file =
+                        dlg.get_filename().expect("Can't find selected file");
+                };
+
+                dlg.close();
+            });
+            dialog.show();
+        });
+
         gtk::timeout_add_seconds(1, move || {
-            if Alarm::get_audio().is_some() {
+            let alarm_ref4: &RefCell<Alarm> = alarm_ref4.borrow();
+            let alarm_ref4 = alarm_ref4.borrow();
+            if alarm_ref4.selected_file.exists() {
                 let image =
                     gtk::Image::new_from_icon_name("view-refresh", 5).upcast::<gtk::Widget>();
                 add_btn.set_image::<gtk::Widget, &Option<gtk::Widget>>(&Some(image));
@@ -207,64 +191,44 @@ impl Alarm {
         });
 
         btn.connect_clicked(move |_btn| {
-            let selected_file = match Self::get_audio() {
-                Some(file) => file,
-                None => return,
-            };
+            let alarm_ref2 = alarm_ref1.clone();
+            let alarm_ref1: &RefCell<Alarm> = alarm_ref1.borrow();
+            let alarm_ref1 = alarm_ref1.borrow();
+            if alarm_ref1.selected_file.exists() {
+                alarm_ref1.main_win.hide();
 
-            self.main_win.hide();
+                let mut time = 0.0;
+                let fact = [3600.0, 60.0, 1.0];
+                for (idx, child) in hbox.get_children().into_iter().enumerate() {
+                    let child = child.downcast::<gtk::Box>().unwrap();
+                    let v = child
+                        .get_children()
+                        .pop()
+                        .unwrap()
+                        .downcast::<gtk::SpinButton>()
+                        .unwrap()
+                        .get_value();
+                    time += v * fact[idx];
+                }
 
-            let mut time = 0.0;
-            let fact = [3600.0, 60.0, 1.0];
-            for (idx, child) in hbox.get_children().into_iter().enumerate() {
-                let child = child.downcast::<gtk::Box>().unwrap();
-                let v = child
-                    .get_children()
-                    .pop()
-                    .unwrap()
-                    .downcast::<gtk::SpinButton>()
-                    .unwrap()
-                    .get_value();
-                time += v * fact[idx];
+                let time = time as u64;
+                gtk::idle_add(move || {
+                    let alarm_ref2: &RefCell<Alarm> = alarm_ref2.borrow();
+                    let alarm_ref2 = alarm_ref2.borrow();
+                    std::thread::sleep(std::time::Duration::from_secs(time));
+                    Alarm::execute_file(&alarm_ref2.selected_file);
+                    &alarm_ref2.main_win.show();
+                    gtk::Continue(false)
+                });
             }
-
-            let time = time as u64;
-            gtk::idle_add(move || {
-                std::thread::sleep(std::time::Duration::from_secs(time));
-                Alarm::on_done_clicked(&gtk::Button::new(), selected_file.clone());
-                gtk::Continue(false)
-            });
         });
     }
 }
 
-fn get_config_file() -> std::path::PathBuf {
-    let mut config_file = CONFIG_DIR.clone();
-    config_file.push("config_file");
-    config_file
-}
-
-fn setup_env() {
-    fs::create_dir_all(CONFIG_DIR.as_path()).expect("Error while creating config dir");
-    let config_file = get_config_file();
-    match fs::File::open(&config_file) {
-        Ok(_) => write_config(&config_file),
-        Err(_) => write_config(&config_file),
-    };
-}
-
-fn write_config(path: &std::path::PathBuf) {
-    fs::File::create(path).expect("Error while creating config file");
-}
-
 fn main() {
-    setup_env();
-
     gtk::init().unwrap();
 
     let alarm = Alarm::new();
     alarm.connect_all();
     gtk::main();
 }
-
-//Commands: linux:xdg-open win:start mac:open
