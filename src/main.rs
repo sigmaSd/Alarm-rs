@@ -217,7 +217,7 @@ impl Alarm {
                     let alarm_ref2 = alarm_ref2.borrow();
                     std::thread::sleep(std::time::Duration::from_secs(time));
                     Alarm::execute_file(&alarm_ref2.selected_file);
-                    &alarm_ref2.main_win.show();
+                    alarm_ref2.main_win.show();
                     gtk::Continue(false)
                 });
             }
