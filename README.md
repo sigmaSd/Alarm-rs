@@ -11,5 +11,5 @@ cargo run --release
 ```
 
 # How it looks like
-<img src="./alarm.png" width="80%" height="80%">
+<img src="./alarm.png" width="30%" height="30%">
 
