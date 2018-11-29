@@ -1,0 +1,19 @@
+[package]
+name = "alarm"
+version = "0.1.0"
+authors = ["Nbiba Bedis <bedisnbiba@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+directories = "1.0"
+lazy_static = "1.2.0"
+gdk-pixbuf = "*"
+daemonize = "0.3.0"
+
+[dependencies.gtk]
+version = "*"
+features = ["v3_16"]
+
+[target.x86_64-pc-windows-gnu]
+linker = "x86_64-w64-mingw32-gcc"
+ar = "x86_64-w64-mingw32-gcc-ar"
