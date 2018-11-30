@@ -1,10 +1,18 @@
 # Alarm-rs
 
-Execute a program after a set amount of time. (via `xdg-open`)
+Execute a program after a set amount of time. (via `xdg-open` on linux, and `start` on windows)
 
-Made with many hacks to play with gtk-rs.
+Made to play with gtk-rs.
 
 # Usage 
+
+```console
+cargo run --release
+```
+
+**Compiling on Windows**
+
+Follow these steps [https://gtk-rs.org/docs-src/requirements.html](https://gtk-rs.org/docs-src/requirements.html) to setup the build environment than use
 
 ```console
 cargo run --release

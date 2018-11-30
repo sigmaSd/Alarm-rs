@@ -89,8 +89,11 @@ impl Alarm {
                 .spawn()
                 .expect("Error opening desired file");
         } else if cfg!(target_os = "windows") {
+            // Bug maybe?
+            let selected_file = selected_file.to_str().unwrap().replace(" ", "\\ ");
+            let selected_file = selected_file.as_str();
             std::process::Command::new("cmd")
-                .args(&["/C", "start", selected_file.to_str().unwrap()])
+                .args(&["/C", "start", selected_file])
                 .spawn()
                 .expect("Error opening desired file");
         } else {
