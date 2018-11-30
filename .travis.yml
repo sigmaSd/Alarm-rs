@@ -7,5 +7,5 @@ os:
 dist: "xenial"
 
 script:
-  - sudo apt-get install libpango-1.0-0
+  - sudo apt-get install libpango1.0-dev
   - cargo build --release 
