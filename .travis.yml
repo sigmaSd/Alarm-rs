@@ -7,7 +7,8 @@ os:
 dist: "xenial"
 
 script:
-- cargo build --release
+  - sudo apt-get install libgtk-3-dev
+  - cargo build --release 
 
 deploy:
   provider: releases
