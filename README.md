@@ -12,7 +12,7 @@ cargo run --release
 
 **Compiling on Windows**
 
-Follow these steps [https://gtk-rs.org/docs-src/requirements.html](https://gtk-rs.org/docs-src/requirements.html) to setup the build environment than use
+Follow these steps [https://gtk-rs.org/docs-src/requirements.html](https://gtk-rs.org/docs-src/requirements.html) to setup the build environment then use
 
 ```console
 cargo run --release
