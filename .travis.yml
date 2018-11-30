@@ -1,9 +1,9 @@
 language: rust
-sudo: false
+sudo: true
 rust:
   - beta
 os:
   - linux
 script:
-  - apt-get update
+  - sudo apt-get update
   - cargo build --release 
