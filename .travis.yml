@@ -1,5 +1,5 @@
 language: rust
-sudo: false
+sudo: true
 rust:
   - beta
 os:
@@ -7,4 +7,5 @@ os:
 dist: "xenial"
 
 script:
+  - sudo apt-get install pango
   - cargo build --release 
