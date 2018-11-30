@@ -6,14 +6,6 @@ Made to play with gtk-rs.
 
 # Usage 
 
-**Linux**
-
-```console
-cargo run --release
-```
-
-**Windows**
-
 Follow these steps [https://gtk-rs.org/docs-src/requirements.html](https://gtk-rs.org/docs-src/requirements.html) to setup the build environment then use
 
 ```console
