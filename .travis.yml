@@ -17,4 +17,4 @@ deploy:
   file: target/release/alarm
   skip_cleanup: true
   on:
-    repo: sigmaSd/Alarm-rs
+    tags: true
