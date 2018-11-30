@@ -5,4 +5,5 @@ rust:
 os:
   - linux
 script:
+  - apt-get update
   - cargo build --release 
