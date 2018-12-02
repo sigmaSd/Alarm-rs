@@ -93,9 +93,9 @@ impl Alarm {
             let mut selected_file: String = selected_file
                 .to_str()
                 .unwrap()
-                .split("\\")
+                .split('\\')
                 .map(|path| {
-                    if path.contains(" ") {
+                    if path.contains(' ') {
                         format!("\"{}\"", &path)
                     } else {
                         format!("{}\\", &path)
