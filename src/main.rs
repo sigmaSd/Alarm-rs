@@ -89,11 +89,24 @@ impl Alarm {
                 .spawn()
                 .expect("Error opening desired file");
         } else if cfg!(target_os = "windows") {
-            // Bug maybe?
-            let selected_file = selected_file.to_str().unwrap().replace(" ", "\\ ");
-            let selected_file = selected_file.as_str();
+            // Workaround rust issues with windows paths
+            let mut selected_file: String = selected_file
+                .to_str()
+                .unwrap()
+                .split("\\")
+                .map(|path| {
+                    if path.contains(" ") {
+                        format!("\"{}\"", &path)
+                    } else {
+                        format!("{}\\", &path)
+                    }
+                })
+                .collect();
+            selected_file.pop();
+            let arg = format!("start {}", &selected_file);
             std::process::Command::new("cmd")
-                .args(&["/C", "start", selected_file])
+                .arg("/C")
+                .arg(&arg)
                 .spawn()
                 .expect("Error opening desired file");
         } else {
